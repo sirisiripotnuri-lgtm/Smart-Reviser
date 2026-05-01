@@ -1573,10 +1573,9 @@ const AlarmView = ({ username }) => {
   const DAY_LABELS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
   useEffect(() => {
-    loadData(ALARM_KEY(username)).then(data => {
-      if (data) setAlarms(data);
-      setLoaded(true);
-    });
+    const data = loadData(ALARM_KEY(username));
+    if (data) setAlarms(data);
+    setLoaded(true);
   }, [username]);
 
   useEffect(() => {
