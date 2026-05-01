@@ -10,11 +10,14 @@ const path = require("path");
 const cors = require("cors");
 
 const app = express();
-const PORT = 4000;
+const PORT = process.env.PORT || 4000;
 const DB_FILE = path.join(__dirname, "db.json");
 
 app.use(cors());
 app.use(express.json({ limit: "50mb" }));
+
+app.use(express.static(path.join(__dirname, "dist")));
+
 
 /* ── Load / Save db.json ── */
 function readDB() {
@@ -142,4 +145,9 @@ app.listen(PORT, "0.0.0.0", () => {
   console.log(`  POST /notes/:user  — save notes`);
   console.log(`  GET  /users        — list all registered users`);
   console.log(`\n✅ Ready! Open http://localhost:3000 in your browser\n`);
+});
+
+
+app.get("*", (_req, res) => {
+  res.sendFile(path.join(__dirname, "dist", "index.html"));
 });
