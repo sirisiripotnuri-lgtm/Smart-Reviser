@@ -1,4 +1,4 @@
-# 🧠 Memory Assistant
+# 🧠 Memory Assistant — With Real Database
 
 > A personal spaced repetition system that helps you capture, review, and truly retain what you learn — with voice notes, smart scheduling, and daily habit tracking.
 
@@ -116,49 +116,73 @@ It combines the power of:
 
 ---
 
-## Getting Started
+## ▶️ First Time Setup (do once)
 
-### Prerequisites
+### 1. Install Node.js
+Download from https://nodejs.org → choose **LTS** version
 
-- [Node.js](https://nodejs.org/) v18 or higher
-- npm (comes with Node.js)
-
-### Installation
-
-**1. Create a Vite React project:**
-
-```bash
-npm create vite@latest memory-assistant -- --template react
-cd memory-assistant
+### 2. Open this folder in VS Code
+```
+File → Open Folder → select "memory-app" folder
 ```
 
-**2. Install dependencies:**
-
-```bash
-npm install recharts
+### 3. Open Terminal in VS Code
+```
+Terminal → New Terminal   (or Ctrl + `)
 ```
 
-**3. Replace `src/App.jsx`** with the downloaded `memory-assistant.jsx` file.
+### 4. Install all dependencies
+```bash
+npm install
+```
 
-**4. Start the development server:**
+---
 
+## 🚀 Running the App (Every Time)
+
+You need **2 terminals** running at the same time:
+
+### Terminal 1 — Start the Database Server
+```bash
+npm run server
+```
+You will see:
+```
+🧠 Memory Assistant Database Server
+📦 Database file: db.json
+🚀 Running at: http://localhost:4000
+```
+
+### Terminal 2 — Start the React App
+```bash
+npm start
+```
+Opens at → **http://localhost:3000**
+
+---
+
+## ⚡ One Command (Start Both Together)
 ```bash
 npm run dev
 ```
+This starts both server + app at once automatically.
 
-**5. Open in browser:**
+---
 
-```
-http://localhost:5173
-```
+## 📱 Open on Phone (Same WiFi)
 
-### Build for Production
+1. Find your PC's IP address:
+   - **Windows**: Open Command Prompt → type `ipconfig` → look for IPv4 Address (e.g. 192.168.1.5)
+   - **Mac**: System Settings → WiFi → Details → IP Address
 
-```bash
-npm run build
-```
+2. On your phone browser go to:
+   ```
+   http://192.168.1.5:3000
+   ```
 
-The output will be in the `dist/` folder. You can deploy it to any static host (Netlify, Vercel, GitHub Pages).
+3. Add to Home Screen:
+   - **iPhone**: Safari → Share → "Add to Home Screen"
+   - **Android**: Chrome → 3-dot menu → "Add to Home Screen"
 
 ---
 
@@ -166,6 +190,8 @@ The output will be in the `dist/` folder. You can deploy it to any static host (
 
 ```
 memory-assistant/
+├── db.json          ← YOUR DATABASE (all users + notes saved here)
+├── server.js        ← Database server (reads/writes db.json)
 ├── src/
 │   └── App.jsx              ← Entire application (single file)
 ├── public/
@@ -226,17 +252,36 @@ Add Note → Record Voice → Save together
                    ↓
            Note Modal   → Play anytime with ▶ button
 ```
+## 💾 How the Database Works
 
-### Data Storage
+| Action | What happens |
+|--------|-------------|
+| Register | Account saved to `db.json` permanently |
+| Login | Checks `db.json` — if user exists, signs in |
+| Add Note | Saved to `db.json` under your username |
+| Wrong username | "No account found. Please register." |
+| Wrong password | "Incorrect password." |
+| Refresh page | Auto-logged in (session in browser) |
+| Sign out | Session cleared, account stays in `db.json` |
 
-All data is saved in `window.storage` under per-user keys:
-
-| Key | Contents |
-|---|---|
-| `ma_users` | All registered user accounts |
-| `ma_session` | Currently logged-in username |
-| `ma_notes_<username>` | That user's notes array |
-| `ma_alarms_<username>` | That user's reminders array |
+### db.json looks like this:
+```json
+{
+  "users": {
+    "john": {
+      "username": "john",
+      "name": "John Smith",
+      "hash": "abc123",
+      "created": "2024-01-15T10:00:00.000Z"
+    }
+  },
+  "notes": {
+    "john": [
+      { "id": "abc", "title": "My Note", "content": "..." }
+    ]
+  }
+}
+```
 
 ---
 
@@ -266,10 +311,12 @@ All data is saved in `window.storage` under per-user keys:
 
 ---
 
-## License
+## ❓ Troubleshooting
 
-MIT License — free to use, modify, and distribute.
-
----
-
-Built with ❤️ to help students and lifelong learners retain knowledge that matters.
+| Problem | Fix |
+|---------|-----|
+| "Server Not Running" error | Run `npm run server` in a terminal first |
+| `npm` not found | Install Node.js from nodejs.org, restart VS Code |
+| Port 3000 in use | Press Y when asked to use 3001 |
+| Port 4000 in use | Change `PORT = 4000` in server.js to 4001, and `API = "http://localhost:4001"` in App.jsx |
+| Can't connect on phone | Make sure both devices on same WiFi |
