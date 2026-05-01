@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
 
+
+
 /* ─── Constants ─── */
 const INTERVALS = [1, 3, 7, 15];
 const VIEWS = { DASHBOARD: "dashboard", ADD: "add", REVIEW: "review", PROGRESS: "progress", ALARMS: "alarms" };
@@ -31,25 +33,40 @@ function simpleHash(str) {
   for (let i = 0; i < str.length; i++) h = ((h << 5) + h) ^ str.charCodeAt(i);
   return (h >>> 0).toString(36);
 }
-const USERS_KEY = "ma_users";
+
 const SESSION_KEY = "ma_session";
-function getUsers() { return loadData(USERS_KEY) || {}; }
-function saveUsers(u) { saveData(USERS_KEY, u); }
+
+const API =
+  window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+    ? "http://localhost:4000"
+    : "";
+
+async function postJSON(path, data) {
+  const res = await fetch(API + path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data)
+  });
+  return res.json();
+}
+
+async function getJSON(path) {
+  const res = await fetch(API + path);
+  return res.json();
+}
+
 function registerUser(username, password, name) {
-  const users = getUsers();
-  if (users[username.toLowerCase()]) return { ok: false, msg: "Username already taken." };
-  users[username.toLowerCase()] = { username: username.toLowerCase(), name, hash: simpleHash(password), created: new Date().toISOString() };
-  saveUsers(users);
-  return { ok: true, user: users[username.toLowerCase()] };
+  return postJSON("/register", { username, password, name });
 }
+
 function loginUser(username, password) {
-  const users = getUsers();
-  const u = users[username.toLowerCase()];
-  if (!u) return { ok: false, msg: "No account found. Please register." };
-  if (u.hash !== simpleHash(password)) return { ok: false, msg: "Incorrect password." };
-  return { ok: true, user: u };
+  return postJSON("/login", { username, password });
 }
-function notesKey(username) { return `ma_notes_${username}`; }
+
+function notesKey(username) {
+  return `ma_notes_${username}`;
+}
+
 
 /* ─── Colors / Design Tokens ─── */
 const C = {
@@ -179,14 +196,15 @@ const AuthScreen = ({ onAuth }) => {
     outline: "none", boxSizing: "border-box", fontFamily: "inherit", transition: "border-color 0.2s",
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async ()  => {
     setError(""); setLoading(true);
     if (!username.trim() || !password.trim()) { setError("Please fill in all fields."); setLoading(false); return; }
     if (tab === "register" && !name.trim()) { setError("Please enter your name."); setLoading(false); return; }
     if (tab === "register" && password.length < 6) { setError("Password must be at least 6 characters."); setLoading(false); return; }
     const result = tab === "login"
-      ? loginUser(username.trim(), password)
-      : registerUser(username.trim(), password, name.trim());
+  ? await loginUser(username.trim(), password)
+  : await registerUser(username.trim(), password, name.trim());
+
     if (!result.ok) { setError(result.msg); setLoading(false); return; }
     // ✅ Save session key — permanent in localStorage
     saveData(SESSION_KEY, result.user.username);
@@ -1773,8 +1791,7 @@ export default function App() {
   const [user, setUser] = useState(() => {
     const savedUsername = loadData(SESSION_KEY);
     if (!savedUsername) return null;
-    const users = getUsers();
-    return users[savedUsername] || null;
+    return savedUsername ? { username: savedUsername, name: savedUsername } : null;
   });
   const [notes, setNotes] = useState(() => {
     const savedUsername = loadData(SESSION_KEY);

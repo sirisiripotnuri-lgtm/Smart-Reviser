@@ -12,6 +12,16 @@ const cors = require("cors");
 const app = express();
 const PORT = process.env.PORT || 4000;
 const DB_FILE = path.join(__dirname, "db.json");
+const { createClient } = require("@supabase/supabase-js");
+
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  console.warn("Missing SUPABASE_URL or SUPABASE_SERVICE_KEY");
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 app.use(cors());
 app.use(express.json({ limit: "50mb" }));
@@ -48,78 +58,125 @@ function simpleHash(str) {
 app.get("/ping", (req, res) => res.json({ ok: true }));
 
 // ── REGISTER ──
-app.post("/register", (req, res) => {
+app.post("/register", async (req, res) => {
   const { username, password, name } = req.body;
-  if (!username || !password || !name)
-    return res.json({ ok: false, msg: "All fields are required." });
 
-  const db = readDB();
+  if (!username || !password || !name) {
+    return res.json({ ok: false, msg: "All fields are required." });
+  }
+
   const key = username.toLowerCase().trim();
 
-  if (db.users[key])
-    return res.json({ ok: false, msg: "Username already taken. Please sign in." });
+  const { data: existing, error: findError } = await supabase
+    .from("users")
+    .select("username")
+    .eq("username", key)
+    .maybeSingle();
 
-  db.users[key] = {
+  if (findError) {
+    return res.json({ ok: false, msg: findError.message });
+  }
+
+  if (existing) {
+    return res.json({ ok: false, msg: "Username already taken. Please sign in." });
+  }
+
+  const user = {
     username: key,
     name: name.trim(),
     hash: simpleHash(password),
-    created: new Date().toISOString(),
+    created: new Date().toISOString()
   };
 
-  db.notes[key] = [];   // empty notes array for new user
-  writeDB(db);
+  const { error } = await supabase.from("users").insert(user);
 
-  console.log(`✅ Registered: ${key}`);
+  if (error) {
+    return res.json({ ok: false, msg: error.message });
+  }
+
   res.json({ ok: true, user: { username: key, name: name.trim() } });
 });
 
+
 // ── LOGIN ──
-app.post("/login", (req, res) => {
+app.post("/login", async (req, res) => {
   const { username, password } = req.body;
-  if (!username || !password)
+
+  if (!username || !password) {
     return res.json({ ok: false, msg: "Please fill in all fields." });
+  }
 
-  const db = readDB();
   const key = username.toLowerCase().trim();
-  const u = db.users[key];
 
-  if (!u)
+  const { data: user, error } = await supabase
+    .from("users")
+    .select("*")
+    .eq("username", key)
+    .maybeSingle();
+
+  if (error) {
+    return res.json({ ok: false, msg: error.message });
+  }
+
+  if (!user) {
     return res.json({ ok: false, msg: "No account found. Please register first." });
+  }
 
-  if (u.hash !== simpleHash(password))
+  if (user.hash !== simpleHash(password)) {
     return res.json({ ok: false, msg: "Incorrect password." });
+  }
 
-  console.log(`🔑 Logged in: ${key}`);
-  res.json({ ok: true, user: { username: u.username, name: u.name } });
+  res.json({ ok: true, user: { username: user.username, name: user.name } });
 });
+
 
 // ── GET NOTES ──
-app.get("/notes/:username", (req, res) => {
-  const db = readDB();
+app.post("/notes/:username", async (req, res) => {
   const key = req.params.username.toLowerCase();
-  res.json({ notes: db.notes[key] || [] });
-});
+  const notes = req.body.notes || [];
 
-// ── SAVE NOTES ──
-app.post("/notes/:username", (req, res) => {
-  const db = readDB();
-  const key = req.params.username.toLowerCase();
-  db.notes[key] = req.body.notes || [];
-  writeDB(db);
+  const { error: deleteError } = await supabase
+    .from("notes")
+    .delete()
+    .eq("username", key);
+
+  if (deleteError) {
+    return res.json({ ok: false, msg: deleteError.message });
+  }
+
+  if (notes.length > 0) {
+    const rows = notes.map((note) => ({
+      ...note,
+      username: key
+    }));
+
+    const { error: insertError } = await supabase
+      .from("notes")
+      .insert(rows);
+
+    if (insertError) {
+      return res.json({ ok: false, msg: insertError.message });
+    }
+  }
+
   res.json({ ok: true });
 });
 
+
+
 // ── LIST ALL USERS (for debugging) ──
-app.get("/users", (req, res) => {
-  const db = readDB();
-  const safeUsers = Object.values(db.users).map(u => ({
-    username: u.username,
-    name: u.name,
-    created: u.created,
-    noteCount: (db.notes[u.username] || []).length,
-  }));
-  res.json({ count: safeUsers.length, users: safeUsers });
+app.get("/users", async (req, res) => {
+  const { data, error } = await supabase
+    .from("users")
+    .select("username, name, created");
+
+  if (error) {
+    return res.json({ count: 0, users: [], error: error.message });
+  }
+
+  res.json({ count: data.length, users: data });
 });
+
 
 const os = require("os");
 function getLocalIP() {
@@ -131,6 +188,10 @@ function getLocalIP() {
   }
   return "localhost";
 }
+
+app.get("*", (_req, res) => {
+  res.sendFile(path.join(__dirname, "dist", "index.html"));
+});
 
 app.listen(PORT, "0.0.0.0", () => {
   const ip = getLocalIP();
@@ -147,7 +208,3 @@ app.listen(PORT, "0.0.0.0", () => {
   console.log(`\n✅ Ready! Open http://localhost:3000 in your browser\n`);
 });
 
-
-app.get("*", (_req, res) => {
-  res.sendFile(path.join(__dirname, "dist", "index.html"));
-});
