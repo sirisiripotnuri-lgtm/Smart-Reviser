@@ -39,7 +39,7 @@ const SESSION_KEY = "ma_session";
 const API =
   window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
     ? "http://localhost:4000"
-    : "";
+    : window.location.origin;
 
 async function postJSON(path, data) {
   const res = await fetch(API + path, {
