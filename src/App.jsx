@@ -1845,9 +1845,32 @@ useEffect(() => {
     setUser(null); setNotes([]); setNotesLoaded(false); setView(VIEWS.DASHBOARD);
   }, []);
 
-  const addNote = useCallback((note) => setNotes(prev => [note, ...prev]), []);
-  const updateNote = useCallback((updated) => setNotes(prev => prev.map(n => n.id === updated.id ? updated : n)), []);
-  const deleteNote = useCallback((id) => setNotes(prev => prev.filter(n => n.id !== id)), []);
+
+
+const addNote = useCallback((note) => {
+  setNotes(prev => {
+    const nextNotes = [note, ...prev];
+    if (user) saveNotesToDB(user.username, nextNotes);
+    return nextNotes;
+  });
+}, [user]);
+
+const updateNote = useCallback((updated) => {
+  setNotes(prev => {
+    const nextNotes = prev.map(n => n.id === updated.id ? updated : n);
+    if (user) saveNotesToDB(user.username, nextNotes);
+    return nextNotes;
+  });
+}, [user]);
+
+const deleteNote = useCallback((id) => {
+  setNotes(prev => {
+    const nextNotes = prev.filter(n => n.id !== id);
+    if (user) saveNotesToDB(user.username, nextNotes);
+    return nextNotes;
+  });
+}, [user]);
+
 
   const today = todayStr();
   const dueCount = notes.filter(n => n.status !== "mastered" && toDateStr(n.next_review) <= today).length;
