@@ -139,11 +139,18 @@ app.get("/notes/:username", async (req, res) => {
     .order("created_at", { ascending: false });
 
   if (error) {
-    return res.json({ notes: [], error: error.message });
+    console.error("Load notes error:", error);
+    return res.status(500).json({ notes: [], error: error.message });
   }
 
-  res.json({ notes: data || [] });
+  const notes = (data || []).map((note) => ({
+    ...note,
+    voiceNote: note.voicenote || null
+  }));
+
+  res.json({ notes });
 });
+
 
 // ── SAVE NOTES ──
 app.post("/notes/:username", async (req, res) => {
@@ -156,13 +163,24 @@ app.post("/notes/:username", async (req, res) => {
     .eq("username", key);
 
   if (deleteError) {
-    return res.json({ ok: false, msg: deleteError.message });
+    console.error("Delete notes error:", deleteError);
+    return res.status(500).json({ ok: false, msg: deleteError.message });
   }
 
   if (notes.length > 0) {
     const rows = notes.map((note) => ({
-      ...note,
-      username: key
+      id: note.id,
+      username: key,
+      title: note.title || "",
+      content: note.content || "",
+      tags: note.tags || [],
+      type: note.type || "learning",
+      created_at: note.created_at,
+      next_review: note.next_review,
+      status: note.status || "active",
+      interval_level: note.interval_level || 0,
+      review_history: note.review_history || [],
+      voicenote: note.voiceNote || null
     }));
 
     const { error: insertError } = await supabase
@@ -170,13 +188,13 @@ app.post("/notes/:username", async (req, res) => {
       .insert(rows);
 
     if (insertError) {
-      return res.json({ ok: false, msg: insertError.message });
+      console.error("Insert notes error:", insertError);
+      return res.status(500).json({ ok: false, msg: insertError.message });
     }
   }
 
   res.json({ ok: true });
 });
-
 
 
 // ── LIST ALL USERS (for debugging) ──
