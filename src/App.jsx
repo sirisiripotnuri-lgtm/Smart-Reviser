@@ -55,6 +55,15 @@ async function getJSON(path) {
   return res.json();
 }
 
+async function loadNotesFromDB(username) {
+  const data = await getJSON(`/notes/${username}`);
+  return data.notes || [];
+}
+
+async function saveNotesToDB(username, notes) {
+  return postJSON(`/notes/${username}`, { notes });
+}
+
 function registerUser(username, password, name) {
   return postJSON("/register", { username, password, name });
 }
@@ -1793,27 +1802,40 @@ export default function App() {
     if (!savedUsername) return null;
     return savedUsername ? { username: savedUsername, name: savedUsername } : null;
   });
-  const [notes, setNotes] = useState(() => {
-    const savedUsername = loadData(SESSION_KEY);
-    if (!savedUsername) return [];
-    return loadData(notesKey(savedUsername)) || [];
-  });
+  const [notes, setNotes] = useState([]);
+
   const [view, setView] = useState(VIEWS.DASHBOARD);
   const [appLoaded, setAppLoaded] = useState(true);   // sync — no async needed
   const [notesLoaded, setNotesLoaded] = useState(() => !!loadData(SESSION_KEY));
   const [leisureMode, setLeisureMode] = useState(false);
 
-  // ✅ Save notes to localStorage whenever they change (per-user)
   useEffect(() => {
-    if (notesLoaded && user) saveData(notesKey(user.username), notes);
-  }, [notes, notesLoaded, user]);
+  if (user) {
+    setNotesLoaded(false);
+
+    loadNotesFromDB(user.username).then((data) => {
+      setNotes(data || []);
+      setNotesLoaded(true);
+    });
+  }
+}, [user]);
+
+useEffect(() => {
+  if (notesLoaded && user) {
+    saveNotesToDB(user.username, notes);
+  }
+}, [notes, notesLoaded, user]);
+
+
 
   // ✅ On login/register: save session + load that user's notes
   const handleAuth = useCallback((authedUser) => {
     saveData(SESSION_KEY, authedUser.username);       // persist session
     setUser(authedUser);
-    const data = loadData(notesKey(authedUser.username));
-    setNotes(data || []);
+    loadNotesFromDB(authedUser.username).then((data) => {
+  setNotes(data || []);
+});
+
     setNotesLoaded(true);
   }, []);
 

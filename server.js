@@ -97,7 +97,6 @@ app.post("/register", async (req, res) => {
   res.json({ ok: true, user: { username: key, name: name.trim() } });
 });
 
-
 // ── LOGIN ──
 app.post("/login", async (req, res) => {
   const { username, password } = req.body;
@@ -129,8 +128,24 @@ app.post("/login", async (req, res) => {
   res.json({ ok: true, user: { username: user.username, name: user.name } });
 });
 
-
 // ── GET NOTES ──
+app.get("/notes/:username", async (req, res) => {
+  const key = req.params.username.toLowerCase();
+
+  const { data, error } = await supabase
+    .from("notes")
+    .select("*")
+    .eq("username", key)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    return res.json({ notes: [], error: error.message });
+  }
+
+  res.json({ notes: data || [] });
+});
+
+// ── SAVE NOTES ──
 app.post("/notes/:username", async (req, res) => {
   const key = req.params.username.toLowerCase();
   const notes = req.body.notes || [];
